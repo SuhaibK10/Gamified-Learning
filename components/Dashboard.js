@@ -2,9 +2,22 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createClient } from '@/lib/supabase-browser';
-import { QUESTIONS, TOPICS, DIFF_LABELS, LEVELS, getLevel, shuffle } from '@/lib/questions';
+import { QUESTIONS, TOPICS, DIFF_LABELS, LEVELS, getLevel, shuffle, JS_TOPICS, REACT_TOPICS } from '@/lib/questions';
 
 const DIFF_CLR = ['','text-sage','text-gold','text-rose'];
+const SECTIONS = ['All', 'JavaScript', 'React'];
+
+function getTopicsForSection(section) {
+  if (section === 'JavaScript') return JS_TOPICS;
+  if (section === 'React') return REACT_TOPICS;
+  return TOPICS;
+}
+
+function getQuestionsForSection(section) {
+  if (section === 'JavaScript') return QUESTIONS.filter(q => q.t.startsWith('JS:'));
+  if (section === 'React') return QUESTIONS.filter(q => q.t.startsWith('React:'));
+  return QUESTIONS;
+}
 
 export default function Dashboard({ user, profile: initProfile, topicStats: initTS, recentAttempts: initHistory, notes: initNotes }) {
   const supabase = createClient();
@@ -14,6 +27,7 @@ export default function Dashboard({ user, profile: initProfile, topicStats: init
   const [topicStats, setTopicStats] = useState(initTS);
   const [history, setHistory] = useState(initHistory);
   const [notes, setNotes] = useState(initNotes);
+  const [section, setSection] = useState('All');
 
   // Game state
   const [queue, setQueue] = useState([]);
@@ -44,6 +58,8 @@ export default function Dashboard({ user, profile: initProfile, topicStats: init
   const nxtXP = LEVELS[level]||LEVELS[LEVELS.length-1];
   const lvlProg = ((xp-curXP)/(nxtXP-curXP))*100;
   const currentQ = queue[qIdx];
+  const sectionTopics = getTopicsForSection(section);
+  const sectionQuestions = getQuestionsForSection(section);
 
   // Timer
   useEffect(() => {
@@ -54,7 +70,7 @@ export default function Dashboard({ user, profile: initProfile, topicStats: init
     if (timedMode && timer === 0 && timerActive && !answered) handleAnswer(-1);
   }, [timer, timerActive, timedMode, answered]);
 
-  // ═══ DB HELPERS ═══
+  // DB helpers
   const updateProfile = async (updates) => {
     const newP = { ...profile, ...updates, updated_at: new Date().toISOString() };
     setProfile(newP);
@@ -88,12 +104,11 @@ export default function Dashboard({ user, profile: initProfile, topicStats: init
     setNoteInput('');
   };
 
-  // ═══ GAME LOGIC ═══
+  // Game logic
   const startGame = (topic, diff, timed) => {
-    let pool = [...QUESTIONS];
-    if (topic) pool = pool.filter(q => q.t === topic);
+    let pool = topic ? QUESTIONS.filter(q => q.t === topic) : [...sectionQuestions];
     if (diff) pool = pool.filter(q => q.d === diff);
-    if (pool.length === 0) pool = [...QUESTIONS];
+    if (pool.length === 0) pool = [...sectionQuestions];
     setQueue(shuffle(pool).slice(0, Math.min(pool.length, 25)));
     setQIdx(0); setSelected(null); setAnswered(false); setCorrect(false);
     setShowExpl(false); setSc(0); setSt(0); setLives(5); setCombo(0); setStreak(0);
@@ -148,16 +163,14 @@ export default function Dashboard({ user, profile: initProfile, topicStats: init
   const comboLabel = combo>=5?"GODLIKE":combo>=4?"UNSTOPPABLE":combo>=3?"ON FIRE":combo>=2?"DOUBLE":"";
   const comboCl = combo>=5?"text-rose":combo>=3?"text-gold":combo>=2?"text-sky":"";
   const accuracy = (profile.total_answered||0) > 0 ? Math.round(((profile.total_correct||0)/(profile.total_answered||0))*100) : 0;
+  const sectionIcon = section === 'JavaScript' ? '⚡' : section === 'React' ? '⚛️' : '🎯';
 
-  // ═══════════════════════════════════════
-  // PROFILE SCREEN
-  // ═══════════════════════════════════════
+  // ═══ PROFILE SCREEN ═══
   if (screen === 'profile') {
     const qNotes = Object.entries(notes).filter(([,v])=>v.length>0);
     return (
       <div className="max-w-xl mx-auto p-5">
         <button onClick={()=>setScreen('home')} className="text-dim border border-border rounded-lg px-3 py-1.5 text-sm hover:border-dim transition mb-4">&larr; Back</button>
-
         <div className="text-center mb-6">
           {profile.avatar_url ? (
             <img src={profile.avatar_url} alt="" className="w-16 h-16 rounded-full mx-auto mb-2 border-2 border-gold/30" referrerPolicy="no-referrer" />
@@ -170,7 +183,6 @@ export default function Dashboard({ user, profile: initProfile, topicStats: init
             <div className="h-full bg-gradient-to-r from-gold to-sage rounded-full transition-all duration-500" style={{width:`${Math.min(lvlProg,100)}%`}} />
           </div>
         </div>
-
         <div className="flex gap-1 mb-4">
           {['stats','notes','history'].map(tab=>(
             <button key={tab} onClick={()=>setProfileTab(tab)}
@@ -179,7 +191,6 @@ export default function Dashboard({ user, profile: initProfile, topicStats: init
             </button>
           ))}
         </div>
-
         {profileTab === 'stats' && (
           <div>
             <div className="grid grid-cols-3 gap-2 mb-6">
@@ -202,7 +213,6 @@ export default function Dashboard({ user, profile: initProfile, topicStats: init
             })}
           </div>
         )}
-
         {profileTab === 'notes' && (
           <div>
             {qNotes.length === 0 ? <p className="text-dim text-sm text-center py-8">No notes yet. Add notes after answering questions!</p>
@@ -219,11 +229,10 @@ export default function Dashboard({ user, profile: initProfile, topicStats: init
             ))}
           </div>
         )}
-
         {profileTab === 'history' && (
           <div>
             {history.length === 0 ? <p className="text-dim text-sm text-center py-8">No history yet.</p>
-            : history.slice(0,40).map((h,i) => (
+            : history.slice(0,50).map((h,i) => (
               <div key={i} className={`flex items-center gap-3 px-3 py-2 rounded-lg mb-0.5 ${i%2===0?'bg-card/50':''}`}>
                 <span className="text-sm">{h.correct?'✅':'❌'}</span>
                 <div className="flex-1 min-w-0">
@@ -234,17 +243,12 @@ export default function Dashboard({ user, profile: initProfile, topicStats: init
             ))}
           </div>
         )}
-
-        <button onClick={signOut} className="w-full mt-8 py-2.5 border border-rose/30 text-rose text-sm font-semibold rounded-xl hover:bg-rose/5 transition">
-          Sign Out
-        </button>
+        <button onClick={signOut} className="w-full mt-8 py-2.5 border border-rose/30 text-rose text-sm font-semibold rounded-xl hover:bg-rose/5 transition">Sign Out</button>
       </div>
     );
   }
 
-  // ═══════════════════════════════════════
-  // HOME SCREEN
-  // ═══════════════════════════════════════
+  // ═══ HOME SCREEN ═══
   if (screen === 'home') return (
     <div className="max-w-xl mx-auto p-5">
       {/* Profile bar */}
@@ -262,35 +266,53 @@ export default function Dashboard({ user, profile: initProfile, topicStats: init
         <span className="text-dim text-xs">Profile →</span>
       </button>
 
-      <div className="h-1.5 bg-border rounded-full mb-6 overflow-hidden">
+      <div className="h-1.5 bg-border rounded-full mb-5 overflow-hidden">
         <div className="h-full bg-gradient-to-r from-gold to-sage rounded-full transition-all duration-500" style={{width:`${Math.min(lvlProg,100)}%`}} />
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-2 mb-6">
+      <div className="grid grid-cols-4 gap-2 mb-5">
         <div className="bg-card border border-border rounded-xl p-3 text-center"><div className="text-lg font-bold text-gold">{profile.total_answered||0}</div><div className="text-[10px] text-dim mt-0.5">Attempted</div></div>
         <div className="bg-card border border-border rounded-xl p-3 text-center"><div className="text-lg font-bold text-sage">{accuracy}%</div><div className="text-[10px] text-dim mt-0.5">Accuracy</div></div>
         <div className="bg-card border border-border rounded-xl p-3 text-center"><div className="text-lg font-bold text-rose">{profile.best_streak||0}</div><div className="text-[10px] text-dim mt-0.5">Best Streak</div></div>
         <div className="bg-card border border-border rounded-xl p-3 text-center"><div className="text-lg font-bold text-sky">{Object.values(notes).flat().length}</div><div className="text-[10px] text-dim mt-0.5">Notes</div></div>
       </div>
 
-      {/* Quick Play */}
-      <h2 className="text-xs font-bold text-dim uppercase tracking-wider mb-2">Quick Play</h2>
-      <div className="flex gap-3 mb-5">
-        <button onClick={()=>startGame(null,null,false)} className="flex-1 py-3.5 bg-gradient-to-br from-sage to-emerald-700 text-bg font-bold text-sm rounded-xl hover:brightness-110 active:scale-[0.98] transition">🎯 All Topics</button>
-        <button onClick={()=>startGame(null,null,true)} className="flex-1 py-3.5 bg-gradient-to-br from-gold to-amber-700 text-bg font-bold text-sm rounded-xl hover:brightness-110 active:scale-[0.98] transition">⏱ Timed</button>
+      {/* ═══ SECTION SWITCHER ═══ */}
+      <div className="flex gap-1 p-1 bg-card border border-border rounded-xl mb-5">
+        {SECTIONS.map(s => (
+          <button key={s} onClick={() => setSection(s)}
+            className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+              section === s 
+                ? s === 'JavaScript' ? 'bg-gold/15 text-gold' : s === 'React' ? 'bg-sky/15 text-sky' : 'bg-sage/15 text-sage'
+                : 'text-dim hover:text-bright'
+            }`}>
+            {s === 'JavaScript' ? '⚡ ' : s === 'React' ? '⚛️ ' : '🎯 '}{s}
+            <span className="text-[10px] ml-1 opacity-60">({getQuestionsForSection(s).length})</span>
+          </button>
+        ))}
       </div>
 
-      {/* Topics */}
-      <h2 className="text-xs font-bold text-dim uppercase tracking-wider mb-2">By Topic</h2>
+      {/* Quick Play */}
+      <h2 className="text-xs font-bold text-dim uppercase tracking-wider mb-2">Quick Play — {section}</h2>
+      <div className="flex gap-3 mb-5">
+        <button onClick={()=>startGame(null,null,false)} className={`flex-1 py-3.5 font-bold text-sm rounded-xl hover:brightness-110 active:scale-[0.98] transition text-bg ${
+          section === 'React' ? 'bg-gradient-to-br from-sky to-blue-700' : section === 'JavaScript' ? 'bg-gradient-to-br from-gold to-amber-700' : 'bg-gradient-to-br from-sage to-emerald-700'
+        }`}>{sectionIcon} All {section} Topics</button>
+        <button onClick={()=>startGame(null,null,true)} className="flex-1 py-3.5 bg-gradient-to-br from-rose to-red-800 text-bg font-bold text-sm rounded-xl hover:brightness-110 active:scale-[0.98] transition">⏱ Timed Mode</button>
+      </div>
+
+      {/* Topics for current section */}
+      <h2 className="text-xs font-bold text-dim uppercase tracking-wider mb-2">Topics</h2>
       <div className="flex flex-wrap gap-1.5 mb-5">
-        {TOPICS.map(t=>{
+        {sectionTopics.map(t=>{
           const s=topicStats[t]; const pct=s?Math.round(s.correct/s.total*100):0;
           const bcl=s?(pct>=70?'border-sage/40':pct>=40?'border-gold/40':'border-rose/40'):'border-border';
           const tcl=pct>=70?'text-sage':pct>=40?'text-gold':'text-rose';
+          const displayName = t.replace('JS: ','').replace('React: ','');
           return(
             <button key={t} onClick={()=>startGame(t,null,false)} className={`bg-card border ${bcl} rounded-full px-3.5 py-1.5 text-xs hover:brightness-110 transition flex items-center gap-1.5`}>
-              <span className="text-bright">{t}</span>
+              <span className="text-bright">{displayName}</span>
               {s && <span className={`text-[10px] ${tcl}`}>{pct}%</span>}
             </button>
           );
@@ -302,22 +324,21 @@ export default function Dashboard({ user, profile: initProfile, topicStats: init
       <div className="flex gap-3">
         {[1,2,3].map(d=>(
           <button key={d} onClick={()=>startGame(null,d,false)} className={`flex-1 bg-card border border-border rounded-xl py-2.5 ${DIFF_CLR[d]} text-sm font-semibold hover:brightness-110 transition`}>
-            {DIFF_LABELS[d]} ({QUESTIONS.filter(q=>q.d===d).length})
+            {DIFF_LABELS[d]} ({sectionQuestions.filter(q=>q.d===d).length})
           </button>
         ))}
       </div>
     </div>
   );
 
-  // ═══════════════════════════════════════
-  // PLAY SCREEN
-  // ═══════════════════════════════════════
+  // ═══ PLAY SCREEN ═══
   if (screen === 'play' && currentQ) {
     const prog = ((qIdx+1)/queue.length)*100;
     const qNotes = notes[currentQ.q] || [];
+    const topicDisplay = currentQ.t.replace('JS: ','').replace('React: ','');
+    const isReactQ = currentQ.t.startsWith('React:');
     return (
       <div className="max-w-xl mx-auto p-5">
-        {/* Top bar */}
         <div className="flex items-center gap-3 mb-3">
           <button onClick={()=>setScreen('home')} className="text-dim border border-border rounded-lg w-9 h-9 flex items-center justify-center hover:border-dim transition">&larr;</button>
           <div className="flex-1"><div className="h-1.5 bg-border rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-gold to-sage rounded-full transition-all duration-300" style={{width:`${prog}%`}} /></div></div>
@@ -327,17 +348,13 @@ export default function Dashboard({ user, profile: initProfile, topicStats: init
           </div>
         </div>
 
-        {/* Combo */}
         {combo>=2 && <div className="text-center py-1 animate-pulse2"><span className={`text-xs font-bold tracking-widest ${comboCl}`}>{comboLabel} x{combo}</span></div>}
-
-        {/* XP popup */}
         {showPop && <div className="fixed top-[30%] left-1/2 z-50 animate-floatUp pointer-events-none"><div className="text-xl font-extrabold text-gold" style={{textShadow:'0 0 20px rgba(232,184,75,0.4)'}}>+{xpPop} XP</div></div>}
 
-        {/* Question card */}
         <div className={`bg-card border border-border rounded-2xl p-5 mb-4 ${shakeWrong?'animate-shake':''}`}>
           <div className="flex justify-between items-center mb-3 flex-wrap gap-2">
             <span className={`border rounded-full px-3 py-0.5 text-[10px] font-semibold ${DIFF_CLR[currentQ.d]} border-current/30`}>{DIFF_LABELS[currentQ.d]}</span>
-            <span className="border border-border rounded-full px-3 py-0.5 text-[10px] text-dim">{currentQ.t}</span>
+            <span className={`border rounded-full px-3 py-0.5 text-[10px] font-semibold ${isReactQ ? 'border-sky/40 text-sky' : 'border-gold/40 text-gold'}`}>{isReactQ ? '⚛️ ' : '⚡ '}{topicDisplay}</span>
             <span className="text-[11px] text-dim">{qIdx+1}/{queue.length}</span>
           </div>
 
@@ -363,7 +380,6 @@ export default function Dashboard({ user, profile: initProfile, topicStats: init
             })}
           </div>
 
-          {/* Post-answer */}
           {answered && (
             <div className="mt-4">
               <div className="flex gap-2 flex-wrap">
@@ -374,13 +390,11 @@ export default function Dashboard({ user, profile: initProfile, topicStats: init
                   📝 {showNotepad?'Hide':'Add'} Note
                 </button>
               </div>
-
               {showExpl && (
                 <div className="mt-2.5 p-3.5 bg-bg border border-sky/20 rounded-xl">
                   <p className="text-xs leading-relaxed text-gray-300">{currentQ.e}</p>
                 </div>
               )}
-
               {showNotepad && (
                 <div className="mt-2.5 p-3.5 bg-bg border border-gold/20 rounded-xl">
                   <textarea value={noteInput} onChange={e=>setNoteInput(e.target.value)} placeholder="Write your note or remark..."
@@ -421,9 +435,7 @@ export default function Dashboard({ user, profile: initProfile, topicStats: init
     );
   }
 
-  // ═══════════════════════════════════════
-  // RESULTS SCREEN
-  // ═══════════════════════════════════════
+  // ═══ RESULTS SCREEN ═══
   if (screen === 'results') {
     const pct = st>0?Math.round(sc/st*100):0;
     const grade = pct>=90?'S':pct>=75?'A':pct>=60?'B':pct>=40?'C':'F';
@@ -435,14 +447,12 @@ export default function Dashboard({ user, profile: initProfile, topicStats: init
         <div className="text-6xl mt-8 mb-2">{emoji}</div>
         <div className={`text-7xl font-extrabold ${gc} leading-none`}>{grade}</div>
         <p className="text-dim text-sm mt-2 mb-8">{msg}</p>
-
         <div className="grid grid-cols-4 gap-2 mb-8">
           <div className="bg-card border border-border rounded-xl p-3"><div className="text-xl font-bold text-sage">{sc}</div><div className="text-[10px] text-dim">Correct</div></div>
           <div className="bg-card border border-border rounded-xl p-3"><div className="text-xl font-bold text-rose">{st-sc}</div><div className="text-[10px] text-dim">Wrong</div></div>
           <div className="bg-card border border-border rounded-xl p-3"><div className="text-xl font-bold text-sky">{pct}%</div><div className="text-[10px] text-dim">Accuracy</div></div>
           <div className="bg-card border border-border rounded-xl p-3"><div className="text-xl font-bold text-gold">{profile.best_streak||0}</div><div className="text-[10px] text-dim">Best Streak</div></div>
         </div>
-
         <div className="flex gap-3">
           <button onClick={()=>startGame(null,null,false)} className="flex-1 py-3.5 bg-gradient-to-br from-sage to-emerald-700 text-bg font-bold text-sm rounded-xl hover:brightness-110 transition">🔄 Play Again</button>
           <button onClick={()=>setScreen('home')} className="flex-1 py-3.5 bg-gradient-to-br from-sky to-blue-800 text-bg font-bold text-sm rounded-xl hover:brightness-110 transition">🏠 Home</button>
