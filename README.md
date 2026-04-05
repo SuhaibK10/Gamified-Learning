@@ -1,6 +1,6 @@
-# ⚡ JS Arena — Gamified JavaScript Practice
+# ⚡Gamified Learning and Practice
 
-A full-stack gamified quiz app to practice JavaScript concepts, with Google OAuth, persistent progress tracking, notes, and an addictive XP/streak system.
+A full-stack gamified quiz app to practice JavaScript, React, SQL, concepts, with Google OAuth, persistent progress tracking, notes, and an addictive XP/streak system.
 
 **Stack:** Next.js 14 (App Router) + Supabase (Auth + PostgreSQL) + Tailwind CSS
 
