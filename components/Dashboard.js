@@ -1,21 +1,24 @@
 'use client';
 
+
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createClient } from '@/lib/supabase-browser';
-import { QUESTIONS, TOPICS, DIFF_LABELS, LEVELS, getLevel, shuffle, JS_TOPICS, REACT_TOPICS } from '@/lib/questions';
+import { QUESTIONS, TOPICS, DIFF_LABELS, LEVELS, getLevel, shuffle, JS_TOPICS, REACT_TOPICS, PYTHON_TOPICS } from '@/lib/questions';
 
 const DIFF_CLR = ['','text-sage','text-gold','text-rose'];
-const SECTIONS = ['All', 'JavaScript', 'React'];
+const SECTIONS = ['All', 'JavaScript', 'React', 'Python'];
 
 function getTopicsForSection(section) {
   if (section === 'JavaScript') return JS_TOPICS;
   if (section === 'React') return REACT_TOPICS;
+  if (section === 'Python') return PYTHON_TOPICS;
   return TOPICS;
 }
 
 function getQuestionsForSection(section) {
   if (section === 'JavaScript') return QUESTIONS.filter(q => q.t.startsWith('JS:'));
   if (section === 'React') return QUESTIONS.filter(q => q.t.startsWith('React:'));
+  if (section === 'Python') return QUESTIONS.filter(q => PYTHON_TOPICS.includes(q.t));
   return QUESTIONS;
 }
 
@@ -284,10 +287,10 @@ export default function Dashboard({ user, profile: initProfile, topicStats: init
           <button key={s} onClick={() => setSection(s)}
             className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all ${
               section === s 
-                ? s === 'JavaScript' ? 'bg-gold/15 text-gold' : s === 'React' ? 'bg-sky/15 text-sky' : 'bg-sage/15 text-sage'
+                ? s === 'JavaScript' ? 'bg-gold/15 text-gold' : s === 'React' ? 'bg-sky/15 text-sky' : s === 'Python' ? 'bg-laven/15 text-laven' : 'bg-sage/15 text-sage'
                 : 'text-dim hover:text-bright'
             }`}>
-            {s === 'JavaScript' ? '⚡ ' : s === 'React' ? '⚛️ ' : '🎯 '}{s}
+            {s === 'JavaScript' ? '⚡ ' : s === 'React' ? '⚛️ ' : s === 'Python' ? '🐍 ' : '🎯 '}{s}
             <span className="text-[10px] ml-1 opacity-60">({getQuestionsForSection(s).length})</span>
           </button>
         ))}
